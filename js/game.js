@@ -129,6 +129,18 @@ var monsterData = [
     maxHealth: 20 + 768 / 1000
   }
 ];
+var bossData = [
+  {
+    name: 'Omen',
+    image: 'omen',
+    src: 'assets/bosses/threeformsPJ2.png',
+    frames: 3,
+    frameW: 317 / 3,
+    frameH: 110,
+    maxHealth: 317,
+    isBoss: true
+  }
+];
 var upgradesData = [
   {
     name: 'Attack',
@@ -205,6 +217,16 @@ game.state.add('play', {
         self.game.load.image(m.image, m.src);
       }
     });
+    // boss images
+    bossData.forEach(function(b) {
+      if (b.frames) {
+        self.game.load.spritesheet(
+          b.image, b.src, b.frameW, b.frameH, b.frames
+        );
+      } else {
+        self.game.load.image(b.image, b.src);
+      }
+    });
     // upgrades
     upgradesData.forEach(function(upgrade) {
       self.game.load.image(upgrade.image, upgrade.src);
@@ -219,6 +241,10 @@ game.state.add('play', {
       clickDmg: 1,
       dps: 0,
       gold: 0,
+      luck: {
+        multiplier: 1.5,
+        chance: 0.025
+      },
       crit: {
         multiplier: 1.25,
         chance: 0.05
@@ -263,15 +289,38 @@ game.state.add('play', {
     // monster group
     self.monsters = self.game.add.group();
     monsterData.forEach(function(m) {
-      var monster = self.monsters.create(1000, self.game.world.centerY, m.image);
-      monster.anchor.setTo(0.5);
-      monster.details = m;
-      monster.inputEnabled = true;
-      monster.health = monster.maxHealth = m.maxHealth;
-      // monster events
-      monster.events.onInputDown.add(self.onClickMonster, self);
-      monster.events.onKilled.add(self.onKilledMonster, self);
-      monster.events.onRevived.add(self.onRevivedMonster, self);
+      for (var i = 0; i < m.frames; i++) {
+        var monster = self.monsters.create(
+          1000, self.game.world.centerY, m.image
+        );
+        monster.frame = i;
+        monster.anchor.setTo(0.5);
+        monster.details = m;
+        monster.inputEnabled = true;
+        monster.health = monster.maxHealth = m.maxHealth;
+        // monster events
+        monster.events.onInputDown.add(self.onClickMonster, self);
+        monster.events.onKilled.add(self.onKilledMonster, self);
+        monster.events.onRevived.add(self.onRevivedMonster, self);
+      }
+    });
+    // boss group
+    self.bosses = self.game.add.group();
+    bossData.forEach(function(b) {
+      for (var i = 0; i < b.frames; i++) {
+        var boss = self.bosses.create(1000, self.game.world.centerY, b.image);
+        boss.frame = i;
+        boss.scale.x = 2;
+        boss.scale.y = 2;
+        boss.anchor.setTo(0.5);
+        boss.details = b;
+        boss.inputEnabled = true;
+        boss.health = boss.maxHealth = b.maxHealth;
+        // boss events
+        boss.events.onInputDown.add(self.onClickMonster, self);
+        boss.events.onKilled.add(self.onKilledMonster, self);
+        boss.events.onRevived.add(self.onRevivedMonster, self);
+      }
     });
     // select initial monster
     self.currentMonster = self.monsters.getRandom();
@@ -293,7 +342,7 @@ game.state.add('play', {
       })
     );
     self.monsterHealthText = self.monsterInfoUI.addChild(
-      self.game.add.text(0, 30, Math.ceil(self.currentMonster.health) + '/' + Math.ceil(self.currentMonster.maxHealth), {
+      self.game.add.text(0, 30, 'HP: ' + formatHealth(self.currentMonster.health), {
         font: '24px Arial Black',
         fill: '#ff0000',
         strokeThickness: 4
@@ -364,7 +413,7 @@ game.state.add('play', {
     }
     self.currentMonster.damage(_dmg);
     // update the health text
-    self.monsterHealthText.text = self.currentMonster.alive ? Math.ceil(self.currentMonster.health) + '/' + Math.ceil(self.currentMonster.maxHealth) : 'DEAD';
+    self.monsterHealthText.text = self.currentMonster.alive ? 'HP: ' + formatHealth(self.currentMonster.health) : 'DEAD';
     // grab a damage text from the pool to display what happened
     var dmgText = self.dmgTextPool.getFirstExists(false);
     if (dmgText) {
@@ -380,15 +429,25 @@ game.state.add('play', {
     monster.position.set(1000, this.game.world.centerY);
     // spawn a coin on the ground
     var coin = self.coins.getFirstExists(false);
+    coin.scale.x = 1;
+    coin.scale.y = 1;
+    // base gold = level * random(1.1, 1.5)
+    var _goldValue = self.level * (Math.random() * (1.5 - 1.1) + 1.1);
+    if (Math.random() <= self.player.luck.chance) { // lucky coin
+      coin.scale.x = 1.5;
+      coin.scale.y = 1.5;
+      _goldValue *= self.player.luck.multiplier;
+    }
+    if (monster.isBoss) {
+      _goldValue *= 2.55;
+    }
     coin.reset(
       self.game.world.centerX + 100 + self.game.rnd.integerInRange(-100, 100),
       self.game.world.centerY + 150 + self.game.rnd.integerInRange(-23, 23)
     );
-    coin.goldValue = Math.round( // gold = level * random(1.1, 1.5)
-      self.level * (Math.random() * (1.5 - 1.1) + 1.1)
-    );
+    coin.goldValue = Math.round(_goldValue);
     self.game.time.events.add(
-      Phaser.Timer.SECOND * 1, self.onCollectCoin, self, coin
+      Phaser.Timer.SECOND * 2, self.onCollectCoin, self, coin
     );
     // progress
     self.levelKills++;
@@ -399,24 +458,32 @@ game.state.add('play', {
       self.monsters.forEach(function(monster) {
         monster.maxHealth *= 1 + self.level / 7.3;
       });
+      // update bosses maxHealth
+      self.bosses.forEach(function(boss) {
+        boss.maxHealth *= 1 + self.level / 3.2;
+      });
     }
     self.levelText.text = 'Level: ' + self.level;
-    self.levelKillsText.text = 'Kills: ' + self.levelKills + '/' + self.levelKillsRequired;
-    // pick a new monster
-    self.currentMonster = self.monsters.getRandom();
+    if ((self.level % 5 === 0) && (self.levelKillsRequired - self.levelKills === 1)) {
+      self.currentMonster = self.bosses.getRandom();
+      self.levelKillsText.text = 'BOSS';
+    } else {
+      self.currentMonster = self.monsters.getRandom();
+      self.levelKillsText.text = 'Kills: ' + self.levelKills + '/' + self.levelKillsRequired;
+    }
     // make sure they are fully healed
     self.currentMonster.revive(self.currentMonster.maxHealth);
   },
   onRevivedMonster: function(monster) {
     var self = this;
-    //
+    // bring a monster to center stage
     monster.position.set(
       self.game.world.centerX + 100,
       self.game.world.centerY
     );
     // update the text display
     self.monsterNameText.text = monster.details.name;
-    self.monsterHealthText.text = Math.ceil(monster.health) + '/' + Math.ceil(monster.maxHealth);
+    self.monsterHealthText.text = 'HP: ' + formatHealth(monster.health);
   },
   onCollectCoin: function(coin) {
     if (!coin.alive) return;
@@ -454,10 +521,15 @@ game.state.add('play', {
           _dmg *= self.player.crit.multiplier;
         }
         self.currentMonster.damage(_dmg);
-        self.monsterHealthText.text = self.currentMonster.alive ? Math.ceil(self.currentMonster.health) + '/' + Math.ceil(self.currentMonster.maxHealth) : 'DEAD';
+        self.monsterHealthText.text = self.currentMonster.alive ? 'HP: ' + formatHealth(self.currentMonster.health) : 'DEAD';
       }
     }
   }
 });
 
 game.state.start('play');
+
+function formatHealth(health) {
+  health = Math.ceil(health);
+  return numeral(health).format(health < 1000000 ? '0,0' : '0,0a');
+}
