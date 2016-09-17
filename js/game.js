@@ -531,5 +531,5 @@ game.state.start('play');
 
 function formatHealth(health) {
   health = Math.ceil(health);
-  return numeral(health).format(health < 1000000 ? '0,0' : '0,0a');
+  return numeral(health).format(health < 10000000 ? '0,0' : '0,0a');
 }
