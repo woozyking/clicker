@@ -456,11 +456,11 @@ game.state.add('play', {
       self.levelKills = 0;
       // update monsters maxHealth
       self.monsters.forEach(function(monster) {
-        monster.maxHealth *= 1 + self.level / 7.3;
+        monster.maxHealth *= 1.75;
       });
       // update bosses maxHealth
       self.bosses.forEach(function(boss) {
-        boss.maxHealth *= 1 + self.level / 3.2;
+        boss.maxHealth *= 2.25;
       });
     }
     self.levelText.text = 'Level: ' + self.level;
@@ -531,5 +531,5 @@ game.state.start('play');
 
 function formatHealth(health) {
   health = Math.ceil(health);
-  return numeral(health).format(health < 10000000 ? '0,0' : '0,0a');
+  return numeral(health).format(health <= 100000000 ? '0,0' : '0,0a');
 }
