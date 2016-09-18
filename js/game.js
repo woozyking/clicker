@@ -190,20 +190,19 @@ game.state.add('play', {
     self.levelKills = 0;
     self.levelKillsRequired = 10;
     // build panel for upgrades
-    var bmd = self.game.add.bitmapData(250, 500);
+    var bmd = self.game.add.bitmapData(250, 470);
     bmd.ctx.fillStyle = '#9a783d';
     bmd.ctx.strokeStyle = '#35371c';
     bmd.ctx.lineWidth = 12;
-    bmd.ctx.fillRect(0, 0, 250, 500);
-    bmd.ctx.strokeRect(0, 0, 250, 500);
+    bmd.ctx.fillRect(0, 0, 250, 470);
+    bmd.ctx.strokeRect(0, 0, 250, 470);
     self.game.cache.addBitmapData('upgradePanel', bmd);
-
     var buttonImage = self.game.add.bitmapData(476, 48);
     buttonImage.ctx.fillStyle = '#e6dec7';
     buttonImage.ctx.strokeStyle = '#35371c';
     buttonImage.ctx.lineWidth = 4;
-    buttonImage.ctx.fillRect(0, 0, 225, 48);
-    buttonImage.ctx.strokeRect(0, 0, 225, 48);
+    buttonImage.ctx.fillRect(0, 0, 232, 48);
+    buttonImage.ctx.strokeRect(0, 0, 232, 48);
     self.game.cache.addBitmapData('button', buttonImage);
     // background images
     bgData.forEach(function(bg) {
@@ -262,7 +261,7 @@ game.state.add('play', {
     });
     // upgrade panel
     self.upgradePanel = self.game.add.image(
-      10, 70, self.game.cache.getBitmapData('upgradePanel')
+      10, 100, self.game.cache.getBitmapData('upgradePanel')
     );
     // upgrade buttons
     var upgradeButtons = self.upgradePanel.addChild(self.game.add.group());
@@ -373,12 +372,30 @@ game.state.add('play', {
     self.coins.setAll('inputEnabled', true);
     self.coins.setAll('goldValue', 1);
     self.coins.callAll('events.onInputOver.add', 'events.onInputOver', self.onCollectCoin, self);
-    // player gold text
-    self.playerGoldText = self.add.text(30, 30, 'Gold: ' + self.player.gold, {
-      font: '24px Arial Black',
-      fill: '#fff',
-      strokeThickness: 4
-    });
+    // player UI
+    self.playerUI = self.game.add.group();
+    self.playerUI.position.setTo(30, 30);
+    self.playerGoldText = self.playerUI.addChild(
+      self.game.add.text(0, 0, 'Gold: ' + self.player.gold, {
+        font: '18px Arial Black',
+        fill: '#fff',
+        strokeThickness: 4
+      })
+    );
+    self.clickDmgText = self.playerUI.addChild(
+      self.game.add.text(0, 20, 'Click Damage: ' + self.player.clickDmg, {
+        font: '18px Arial Black',
+        fill: '#fff',
+        strokeThickness: 4
+      })
+    );
+    self.dpsText = self.playerUI.addChild(
+      self.game.add.text(0, 40, 'Auto-Attack DPS: ' + self.player.dps, {
+        font: '18px Arial Black',
+        fill: '#fff',
+        strokeThickness: 4
+      })
+    );
     // level text
     self.levelUI = self.game.add.group();
     self.levelUI.position.setTo(self.game.world.centerX, 30);
@@ -508,6 +525,9 @@ game.state.add('play', {
       button.text.text = button.details.name + ': ' + button.details.level;
       button.costText.text = 'Cost: ' + button.details.cost;
       button.details.purchaseHandler.call(self, button, self.player);
+      // click dmg and dps text update
+      self.clickDmgText.text = 'Click Damage: ' + self.player.clickDmg;
+      self.dpsText.text = 'Auto-Attack DPS: ' + self.player.dps;
     }
   },
   onDPS: function() {
